@@ -8,7 +8,7 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
 
-def build_dataset():
+def old_build_dataset():
     data = pd.read_csv('data/dataset.csv')
     data.replace('null', np.nan, inplace=True)
 
@@ -78,12 +78,13 @@ def load_data(filename, seq_len):
 def gold():
     gold = quandl.get("PERTH/GOLD_USD_D", authtoken="WM8sJvsKsnrHmRA_TkZD")
     gold.drop(['Ask High', 'Bid Low', 'Ask Low', 'Bid Average', 'Ask Average', '6 Month Gold Lease Rates (%PA)'], axis=1, inplace=True)
-    gold_cols = ['gold_{}'.format(col) for col in list(gold.columns)]
+    gold.dropna(inplace=True)
+    gold_cols = ['gold_{}'.format(col.replace(' ', '_')) for col in list(gold.columns)]
     gold.columns = gold_cols
     gold.index.name = 'quote_date'
 
     # gold.tail()
-    # gold.head()
+    gold.head()
 
     return gold
 
@@ -93,7 +94,7 @@ def brent():
     brent_cols = ['brent_{}'.format(col) for col in list(brent.columns)]
     brent.columns = brent_cols
     brent.index.name = 'quote_date'
-    # brent.tail()
+    brent.head()
     return brent
 
 
@@ -104,7 +105,7 @@ def usd_nok():
     usd_nok.set_index('quote_date', inplace=True)
     curr_cols = ['usd_nok_{}'.format(col) for col in list(usd_nok.columns)]
     usd_nok.columns = curr_cols
-    usd_nok.tail()
+    usd_nok.head()
     return usd_nok
 
 
@@ -119,14 +120,22 @@ def osebx():
     return osebx
 
 
-papers = [brent, gold, usd_nok, osebx]
-frames = [f() for f in papers]
+def build_dataset():
+    papers = [brent, gold, usd_nok, osebx]
+    df = pd.concat([f() for f in papers], axis=1)
+    df.fillna(method='ffill', inplace=True)
+    df.dropna(axis=0, how='any', inplace=True)
 
-df = pd.concat(frames, axis=1)
-df.fillna(method='ffill', inplace=True)
+    df = df.tail(10)
+    df = df[['brent_value', 'gold_Bid High', 'usd_nok_close', 'osebx_open']]
+    df
 
-df.tail()
-df.head()
+    x = df[['brent_value', 'gold_Bid High', 'usd_nok_close']].shift(-1)
+    y = df['osebx_open']
+    df = pd.concat([x, y], axis=1)
+    df
+
+    df.to_csv('data/data.csv')
 
 
 if __name__ == '__main__':
