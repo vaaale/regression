@@ -34,9 +34,9 @@ print('Reshapeing input to fit the model')
 x_train = x_train.reshape(nb_samples, SEQ_LEN, NB_FEAT)
 
 print('Fitting model')
-tb = TensorBoard(log_dir='logs', histogram_freq=0, write_graph=True, write_images=True, embeddings_freq=1)
+tb = TensorBoard(log_dir='logs/run-2', histogram_freq=0, write_graph=True, write_images=True, embeddings_freq=1)
 checkpoint = ModelCheckpoint('logs/model-{epoch:02d}-{val_loss:.6f}.hdf5', monitor='val_loss',
                              save_best_only=True,
                              mode='min', save_weights_only=True, verbose=1)
-history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=128, epochs=100, callbacks=[tb, checkpoint])
+history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=128, epochs=300, callbacks=[tb, checkpoint])
 
