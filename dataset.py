@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import quandl
+import re
 
 pd.set_option('display.height', 1000)
 pd.set_option('display.max_rows', 500)
@@ -76,20 +77,21 @@ def load_data(filename, seq_len):
 
 
 def gold():
-    gold = quandl.get("PERTH/GOLD_USD_D", authtoken="WM8sJvsKsnrHmRA_TkZD")
-    gold.drop(['Ask High', 'Bid Low', 'Ask Low', 'Bid Average', 'Ask Average', '6 Month Gold Lease Rates (%PA)'], axis=1, inplace=True)
-    gold.dropna(inplace=True)
-    gold_cols = ['gold_{}'.format(col.replace(' ', '_')) for col in list(gold.columns)]
-    gold.columns = gold_cols
-    gold.index.name = 'quote_date'
-
-    # gold.tail()
+    print('Fetching gold prices')
+    gold = pd.read_csv('http://www.quandl.com/api/v1/datasets/LBMA/GOLD.csv')
     gold.head()
-
+    gold['Date'] = pd.to_datetime(gold['Date'], format='%Y-%m-%d')
+    gold.set_index('Date', inplace=True)
+    gold.index.name = 'quote_date'
+    gold.drop(['GBP (AM)', 'GBP (PM)', 'EURO (AM)', 'EURO (PM)'], axis=1, inplace=True)
+    curr_cols = ['gold_{}'.format(re.sub(r'[^A-Za-z0-9]', '', col).lower()) for col in list(gold.columns)]
+    gold.columns = curr_cols
+    gold.head()
     return gold
 
 
 def brent():
+    print('Fetching brent oil prices')
     brent = quandl.get("COM/OIL_BRENT", authtoken="WM8sJvsKsnrHmRA_TkZD")
     brent_cols = ['brent_{}'.format(col) for col in list(brent.columns)]
     brent.columns = brent_cols
@@ -99,10 +101,11 @@ def brent():
 
 
 def usd_nok():
+    print('Fetching USD/NOK prices')
     usd_nok = pd.read_csv('http://www.netfonds.no/quotes/paperhistory.php?paper=USDNOK.FXSX&csv_format=csv')
-    usd_nok.drop(['paper', 'exch', 'volume', 'value'], axis=1, inplace=True)
     usd_nok['quote_date'] = pd.to_datetime(usd_nok['quote_date'], format='%Y%m%d')
     usd_nok.set_index('quote_date', inplace=True)
+    usd_nok.drop([c for c in usd_nok.columns if c not in ['close']], axis=1, inplace=True)
     curr_cols = ['usd_nok_{}'.format(col) for col in list(usd_nok.columns)]
     usd_nok.columns = curr_cols
     usd_nok.head()
@@ -110,10 +113,12 @@ def usd_nok():
 
 
 def osebx():
+    print('Fetchin OSEBX prices')
     osebx = pd.read_csv('http://www.netfonds.no/quotes/paperhistory.php?paper=OSEBX.OSE&csv_format=csv')
-    osebx.drop(['paper', 'exch', 'value'], axis=1, inplace=True)
+    osebx.head()
     osebx['quote_date'] = pd.to_datetime(osebx['quote_date'], format='%Y%m%d')
     osebx.set_index('quote_date', inplace=True)
+    osebx.drop([c for c in list(osebx.columns) if c not in ['open']], axis=1, inplace=True)
     curr_cols = ['osebx_{}'.format(col) for col in list(osebx.columns)]
     osebx.columns = curr_cols
     osebx.tail()
@@ -123,17 +128,12 @@ def osebx():
 def build_dataset():
     papers = [brent, gold, usd_nok, osebx]
     df = pd.concat([f() for f in papers], axis=1)
+    # df = df[np.isfinite(df['osebx_open'])]
     df.fillna(method='ffill', inplace=True)
-    df.dropna(axis=0, how='any', inplace=True)
-
-    df = df.tail(10)
-    df = df[['brent_value', 'gold_Bid High', 'usd_nok_close', 'osebx_open']]
-    df
-
-    x = df[['brent_value', 'gold_Bid High', 'usd_nok_close']].shift(-1)
-    y = df['osebx_open']
-    df = pd.concat([x, y], axis=1)
-    df
+    # df.dropna(axis=0, how='any', inplace=True)
+    df.dropna(how='any', inplace=True)
+    df['osebx_open'] = df['osebx_open'].shift(-1)
+    df.tail()
 
     df.to_csv('data/data.csv')
 
